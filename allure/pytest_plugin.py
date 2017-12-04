@@ -166,16 +166,41 @@ class AllureTestListener(object):
         step = self.stack.pop()
         step.stop = now()
 
-    def _fill_case(self, report, call, pyteststatus, status):
+    # No longer used, in favor of report_case method to handle parallel test results usind x-dist
+
+    #def _fill_case(self, report, call, pyteststatus, status):
+    #    """
+    #    Finalizes with important data
+    #    :param report: py.test's `TestReport`
+    #    :param call: py.test's `CallInfo`
+    #    :param pyteststatus: the failed/xfailed/xpassed thing
+    #    :param status: a :py:class:`allure.constants.Status` entry
+    #    """
+    #    [self.attach(name, contents, AttachmentType.TEXT) for (name, contents) in dict(report.sections).items()]
+
+    #    self.test.stop = now()
+    #    self.test.status = status
+
+    #    if status in FAILED_STATUSES:
+    #        self.test.failure = Failure(message=get_exception_message(call.excinfo, pyteststatus, report),
+    #                                    trace=report.longrepr or hasattr(report, 'wasxfail') and report.wasxfail)
+    #    elif status in SKIPPED_STATUSES:
+    #        skip_message = type(report.longrepr) == tuple and report.longrepr[2] or report.wasxfail
+    #        trim_msg_len = 89
+    #        short_message = skip_message.split('\n')[0][:trim_msg_len]
+
+    #        # FIXME: see pytest.runner.pytest_runtest_makereport
+    #        self.test.failure = Failure(message=(short_message + '...' * (len(skip_message) > trim_msg_len)),
+    #                                    trace=status == Status.PENDING and report.longrepr or short_message != skip_message and skip_message or '')
+
+    def report_case(self, item, report, call, pyteststatus, status):
         """
-        Finalizes with important data
-        :param report: py.test's `TestReport`
-        :param call: py.test's `CallInfo`
-        :param pyteststatus: the failed/xfailed/xpassed thing
-        :param status: a :py:class:`allure.constants.Status` entry
+        Adds `self.test` to the `report` in a `AllureAggegatingListener`-understood way
         """
+
         [self.attach(name, contents, AttachmentType.TEXT) for (name, contents) in dict(report.sections).items()]
 
+        parent = parent_module(item)
         self.test.stop = now()
         self.test.status = status
 
@@ -191,11 +216,6 @@ class AllureTestListener(object):
             self.test.failure = Failure(message=(short_message + '...' * (len(skip_message) > trim_msg_len)),
                                         trace=status == Status.PENDING and report.longrepr or short_message != skip_message and skip_message or '')
 
-    def report_case(self, item, report):
-        """
-        Adds `self.test` to the `report` in a `AllureAggegatingListener`-understood way
-        """
-        parent = parent_module(item)
         # we attach a four-tuple: (test module ID, test module name, test module doc, environment, TestCase)
         report.__dict__.update(_allure_result=pickle.dumps((parent.nodeid,
                                                             parent.module.__name__,
@@ -234,41 +254,33 @@ class AllureTestListener(object):
 
         if report.when == 'call':
             if report.passed:
-                self._fill_case(report, call, status, Status.PASSED)
+                self.report_case(item, report, call, status, Status.PASSED)
             elif report.failed:
-                self._fill_case(report, call, status, Status.FAILED)
-                # FIXME: this is here only to work around xdist's stupid -x thing when in exits BEFORE THE TEARDOWN test log. Meh, i should file an issue to xdist
-                if self._magicaldoublereport:
-                    # to minimize ze impact
-                    self.report_case(item, report)
+                self.report_case(item, report, call, status, Status.FAILED)
             elif report.skipped:
                 if hasattr(report, 'wasxfail'):
-                    self._fill_case(report, call, status, Status.PENDING)
+                    self.report_case(item, report, call, status, Status.PENDING)
                 else:
-                    self._fill_case(report, call, status, Status.CANCELED)
+                    self.report_case(item, report, call, status, Status.CANCELED)
         elif report.when == 'setup':  # setup / teardown
             if report.failed:
-                self._fill_case(report, call, status, Status.BROKEN)
+                self.report_case(item, report, call, status, Status.BROKEN)
             elif report.skipped:
                 if hasattr(report, 'wasxfail'):
-                    self._fill_case(report, call, status, Status.PENDING)
+                    self.report_case(item, report, call, status, Status.PENDING)
                 else:
-                    self._fill_case(report, call, status, Status.CANCELED)
+                    self.report_case(item, report, call, status, Status.CANCELED)
         elif report.when == 'teardown':
             # as teardown is always called for testitem -- report our status here
             if not report.passed:
                 if self.test.status not in FAILED_STATUSES:
                     # if test was OK but failed at teardown => broken
-                    self._fill_case(report, call, status, Status.BROKEN)
+                    self.report_case(item, report, call, status, Status.BROKEN)
                 else:
                     # mark it broken so, well, someone has idea of teardown failure
                     # still, that's no big deal -- test has already failed
                     # TODO: think about that once again
                     self.test.status = Status.BROKEN
-            # if a test isn't marked as "unreported" or it has failed, add it to the report.
-            if not item.get_marker("unreported") or self.test.status in FAILED_STATUSES:
-                self.report_case(item, report)
-
 
 def pytest_runtest_setup(item):
     item_labels = set((l.name, l.value) for l in labels_of(item))  # see label_type
