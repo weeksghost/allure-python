@@ -257,6 +257,10 @@ class AllureTestListener(object):
                 self.report_case(item, report, call, status, Status.PASSED)
             elif report.failed:
                 self.report_case(item, report, call, status, Status.FAILED)
+                # FIXME: this is here only to work around xdist's stupid -x thing when in exits BEFORE THE TEARDOWN test log. Meh, i should file an issue to xdist
+                if self._magicaldoublereport:
+                    # to minimize ze impact
+                    self.report_case(item, report, call, status, Status.FAILED)
             elif report.skipped:
                 if hasattr(report, 'wasxfail'):
                     self.report_case(item, report, call, status, Status.PENDING)
