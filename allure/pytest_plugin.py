@@ -463,8 +463,8 @@ class AllureHelper(object):
 MASTER_HELPER = AllureHelper()
 
 
-def pytest_namespace():
-    return {'allure': MASTER_HELPER}
+def pytest_configure():
+    pytest.allure = MASTER_HELPER
 
 
 class AllureAgregatingListener(object):
