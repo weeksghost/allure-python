@@ -77,7 +77,7 @@ def pytest_configure(config):
         allure_impl = AllureImpl(reportdir)
 
         testlistener = AllureTestListener(config)
-        pytest.allure._allurelistener = testlistener
+        MASTER_HELPER._allurelistener = testlistener
         config.pluginmanager.register(testlistener)
 
         if not hasattr(config, 'slaveinput'):
@@ -463,8 +463,8 @@ class AllureHelper(object):
 MASTER_HELPER = AllureHelper()
 
 
-def pytest_namespace():
-    return {'allure': MASTER_HELPER}
+#def pytest_namespace():
+#    return {'allure': MASTER_HELPER}
 
 
 class AllureAgregatingListener(object):
