@@ -17,7 +17,11 @@ if sys.version_info < (3, 4):
 
 
 def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    #return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    readme = os.path.join(os.path.dirname(__file__), fname)
+    with open(read, 'r', encoding='utf-8') as data:
+        return data.read()
+
 
 
 def main():
