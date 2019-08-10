@@ -249,7 +249,7 @@ class AllureTestListener(object):
         """
         report = (yield).get_result()
 
-        status = self.config.hook.pytest_report_teststatus(report=report)
+        status = self.config.hook.pytest_report_teststatus(report=report, config=self.config)
         status = status and status[0]
 
         if report.when == 'call':
